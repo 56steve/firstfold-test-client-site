@@ -1,0 +1,60 @@
+:root {
+  --ink: #2a1f1d;
+  --ink-soft: #6b5d58;
+  --paper: #f6efe8;
+  --card: #fbf7f3;
+  --line: #e4d8cd;
+  --accent: #6b1d2e;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+a { color: var(--accent); }
+
+.site-header, .site-main, .site-footer { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+
+.site-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding-top: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--line);
+}
+.brand { font-weight: 600; text-decoration: none; color: var(--ink); }
+.site-header nav { display: flex; gap: 20px; }
+.site-header nav a { text-decoration: none; }
+
+.site-main { padding-top: 32px; padding-bottom: 64px; min-height: 60vh; }
+.site-footer { padding-top: 24px; padding-bottom: 40px; color: var(--ink-soft); font-size: 14px; border-top: 1px solid var(--line); }
+
+h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; font-size: clamp(28px, 5vw, 44px); line-height: 1.15; margin: 0 0 16px; }
+h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
+
+.hero { padding: 24px 0 40px; }
+.hero p { color: var(--ink-soft); max-width: 560px; }
+
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+
+.grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.card-link { display: block; padding: 20px; color: inherit; text-decoration: none; }
+.card-link:hover h2 { color: var(--accent); }
+.card h2 { font-size: 20px; margin: 0 0 6px; }
+.card time { color: var(--ink-soft); font-size: 14px; }
+.card p { color: var(--ink-soft); margin: 10px 0 0; }
+.card-cover { display: block; width: calc(100% + 40px); margin: -20px -20px 16px; aspect-ratio: 3 / 2; object-fit: cover; background: var(--line); }
+
+.notice { padding: 16px 20px; border: 1px dashed var(--line); border-radius: 12px; color: var(--ink-soft); background: var(--card); }
+
+.post { max-width: 680px; }
+.post .back { display: inline-block; margin-bottom: 20px; text-decoration: none; }
+.post time { color: var(--ink-soft); }
+.post-cover { display: block; width: 100%; margin: 24px 0; border-radius: 16px; background: var(--line); aspect-ratio: 3 / 2; object-fit: cover; }
+.post-body { margin-top: 24px; overflow-wrap: anywhere; }
+.post-body img { max-width: 100%; height: auto; }
