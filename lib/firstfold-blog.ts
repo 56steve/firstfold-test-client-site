@@ -120,6 +120,48 @@ export async function getBlog(): Promise<BlogResult> {
   }
 }
 
+export type PreviewResult =
+  | { readonly kind: "ok"; readonly post: BlogPost }
+  | { readonly kind: "not-configured" }
+  | { readonly kind: "unauthorized" }
+  /** The link expired (30 minutes), was tampered with, or its post was deleted. */
+  | { readonly kind: "expired" }
+  | { readonly kind: "unavailable"; readonly detail: string };
+
+/**
+ * One draft post for the "Preview on my website" page: the preview token from the link, plus this site's own token.
+ * Never cached, by Next or by anything in between: a draft changes every time the owner saves it.
+ */
+export async function getPreviewPost(previewToken: string): Promise<PreviewResult> {
+  const token = process.env.FIRSTFOLD_SITE_TOKEN?.trim();
+  if (token === undefined || token === "") return { kind: "not-configured" };
+
+  const origin = apiOrigin();
+  const url = new URL("/api/site/posts/preview", origin);
+  url.searchParams.set("token", previewToken);
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+  } catch (error) {
+    return { kind: "unavailable", detail: error instanceof Error ? error.message : "network error" };
+  }
+
+  if (response.status === 401) return { kind: "unauthorized" };
+  if (response.status === 404) return { kind: "expired" };
+  if (!response.ok) return { kind: "unavailable", detail: `HTTP ${response.status}` };
+
+  try {
+    const body: unknown = await response.json();
+    if (!isRecord(body)) throw new BlogResponseShapeError("the body is not an object");
+    return { kind: "ok", post: parsePost(body.post, origin) };
+  } catch (error) {
+    if (error instanceof BlogResponseShapeError || error instanceof SyntaxError) {
+      return { kind: "unavailable", detail: error.message };
+    }
+    throw error;
+  }
+}
+
 /**
  * The post with this address. Addresses are not guaranteed unique on the platform yet (two posts with the same title
  * share one), so the newest wins: the API returns posts newest first.
