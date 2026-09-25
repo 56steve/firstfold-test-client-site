@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { ReactElement } from "react";
 import { BlogNotice } from "@/components/blog-notice";
+import { OpeningHours } from "@/components/opening-hours";
 import { PostCard } from "@/components/post-card";
 import { getBlog } from "@/lib/firstfold-blog";
+import { getSiteInfo } from "@/lib/firstfold-info";
 
 // Rebuilt at most once a minute, so new posts appear without a redeploy. Kept literal: Next reads it at build time.
 export const revalidate = 60;
@@ -10,13 +12,15 @@ export const revalidate = 60;
 const LATEST_COUNT = 3;
 
 export default async function HomePage(): Promise<ReactElement> {
-  const blog = await getBlog();
+  const [blog, info] = await Promise.all([getBlog(), getSiteInfo()]);
   return (
     <>
       <section className="hero">
         <h1>Good food, served simply.</h1>
         <p>This is a test client website. Its only job is to show the owner&apos;s blog, written in Firstfold.</p>
       </section>
+
+      {info === null ? null : <OpeningHours hours={info.hours} closures={info.closures} />}
 
       <section aria-labelledby="latest">
         <div className="section-head">

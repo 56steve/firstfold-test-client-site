@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactElement, ReactNode } from "react";
+import { AnnouncementBar } from "@/components/announcement-bar";
+import { getSiteInfo } from "@/lib/firstfold-info";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,10 +11,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: { readonly children: ReactNode }): ReactElement {
+export default async function RootLayout({ children }: { readonly children: ReactNode }): Promise<ReactElement> {
+  const info = await getSiteInfo();
+
   return (
     <html lang="en">
       <body>
+        <AnnouncementBar announcement={info?.announcement ?? null} />
         <header className="site-header">
           <Link href="/" className="brand">
             TEST 2 – Firstfold QA
@@ -20,6 +25,7 @@ export default function RootLayout({ children }: { readonly children: ReactNode 
           <nav aria-label="Main">
             <Link href="/">Home</Link>
             <Link href="/blog">Blog</Link>
+            <Link href="/book">Book an appointment</Link>
           </nav>
         </header>
         <main className="site-main">{children}</main>

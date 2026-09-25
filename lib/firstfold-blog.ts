@@ -1,4 +1,5 @@
 import "server-only";
+import { apiOrigin } from "./api-origin";
 
 /**
  * Reads this client's published blog posts from the Firstfold platform (`GET /api/site/posts`).
@@ -12,8 +13,6 @@ import "server-only";
 
 /** How long a fetched list of posts is reused before the platform is asked again. */
 export const BLOG_REVALIDATE_SECONDS = 60;
-
-const DEFAULT_API_ORIGIN = "https://app.firstfold.io";
 
 export interface BlogPost {
   readonly slug: string;
@@ -41,11 +40,6 @@ class BlogResponseShapeError extends Error {
     super(`The Firstfold blog API returned an unexpected shape: ${detail}`);
     this.name = "BlogResponseShapeError";
   }
-}
-
-function apiOrigin(): string {
-  const configured = process.env.FIRSTFOLD_API_ORIGIN?.trim();
-  return configured === undefined || configured === "" ? DEFAULT_API_ORIGIN : configured.replace(/\/+$/, "");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
