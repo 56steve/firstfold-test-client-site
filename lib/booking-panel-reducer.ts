@@ -14,7 +14,7 @@ import { isSiteConfirmResponse, isSiteOtpResponse } from "./site-bookings-guard"
 /** The panel's own editable fields — anything the platform reports an error against outside this list (the
  * honeypot, or `date`/`start`, which the panel sets from the clicked slot rather than the visitor typing them) has
  * nowhere inline to show, so it becomes the panel's general status message instead. */
-export const KNOWN_FIELDS = ["name", "phone", "email", "serviceId", "note"] as const;
+export const KNOWN_FIELDS = ["name", "phone", "serviceId"] as const;
 export type KnownField = (typeof KNOWN_FIELDS)[number];
 
 export function isKnownField(field: string | null): field is KnownField {
@@ -35,6 +35,9 @@ export interface BookedInfo {
   readonly date: string;
   readonly start: string;
   readonly end: string;
+  /** The doctor the platform booked with; null when it didn't say (an older platform, or a name it couldn't read
+   * back), in which case the confirmation simply leaves the doctor out. */
+  readonly practitionerName: string | null;
 }
 
 export type PanelEffect = { readonly type: "taken"; readonly message: string } | { readonly type: "booked" };
@@ -185,7 +188,7 @@ export function panelReducer(state: PanelState, action: PanelAction): PanelState
           ...state,
           step: "booked",
           submitting: false,
-          booked: { date: body.date, start: body.start, end: body.end },
+          booked: { date: body.date, start: body.start, end: body.end, practitionerName: body.practitionerName ?? null },
           effect: { type: "booked" },
         };
       }

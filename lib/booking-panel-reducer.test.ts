@@ -160,8 +160,14 @@ describe("panelReducer / confirm_result", () => {
     const result = panelReducer(state, { type: "confirm_result", body });
     expect(result.step).toBe("booked");
     expect(result.submitting).toBe(false);
-    expect(result.booked).toEqual({ date: "2026-09-28", start: "09:00", end: "09:30" });
+    expect(result.booked).toEqual({ date: "2026-09-28", start: "09:00", end: "09:30", practitionerName: null });
     expect(result.effect).toEqual({ type: "booked" });
+  });
+
+  it("booked records the doctor the platform booked with", () => {
+    const body = { status: "booked", date: "2026-10-13", start: "14:00", end: "14:30", practitionerName: "Dr Rahul Menon" };
+    const result = panelReducer(otpStepState({ submitting: true }), { type: "confirm_result", body });
+    expect(result.booked).toEqual({ date: "2026-10-13", start: "14:00", end: "14:30", practitionerName: "Dr Rahul Menon" });
   });
 
   it("taken sets the taken effect", () => {

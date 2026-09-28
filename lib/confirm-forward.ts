@@ -59,7 +59,10 @@ const RELAYED_STATUSES: ReadonlySet<number> = new Set([200, 400, 403, 409, 410, 
 /** Rebuilds a response from only its validated keys — the upstream object itself is never forwarded as-is. */
 function rebuildResponse(body: SiteConfirmResponse): SiteConfirmResponse {
   if (body.status === "booked") {
-    return { status: "booked", date: body.date, start: body.start, end: body.end };
+    const booked = { status: "booked", date: body.date, start: body.start, end: body.end } as const;
+    // An older platform sends no practitionerName at all: relay it as absent (not null) so the browser can still
+    // tell "no doctor named" from "this platform predates doctors".
+    return body.practitionerName === undefined ? booked : { ...booked, practitionerName: body.practitionerName };
   }
   return { status: "error", code: body.code, message: body.message, field: body.field };
 }

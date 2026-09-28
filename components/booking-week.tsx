@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { formatDayHeader, formatFullDayLabel, formatSlotRange, formatWeekTitle } from "@/lib/booking-date-format";
 import { BookingPanel } from "@/components/booking-form";
+import type { DoctorChoice } from "@/lib/doctor-choice";
 import { isSiteAvailability, isSiteBookingError } from "@/lib/site-bookings-guard";
 import type { SiteAvailability, SiteSlotState } from "@/lib/site-bookings";
-import type { SiteInfoService } from "@/lib/site-info";
+import type { SiteInfoPractitioner, SiteInfoService } from "@/lib/site-info";
 
 const LOAD_ERROR_MESSAGE = "We couldn't load the booking calendar. Please call us.";
 
@@ -45,17 +46,30 @@ function collectClosureNotes(days: SiteAvailability["days"]): readonly string[] 
   return Array.from(seen);
 }
 
+/** A fetched week, and the doctor it was fetched for (null: any doctor). */
+interface LoadedWeek {
+  readonly availability: SiteAvailability;
+  readonly practitionerId: string | null;
+}
+
 export interface BookingWeekProps {
   readonly services: readonly SiteInfoService[];
+  /** The doctor whose slots to show, or null for any doctor (which is also what a clinic with no choice of doctor
+   * always passes, so its requests are exactly what they were before doctors existed). */
+  readonly practitionerId: string | null;
+  /** The doctors the visitor is choosing between (lib/doctor-choice.ts's doctorChoices): empty when the clinic
+   * offers no choice, in which case the booking panel says nothing about doctors. */
+  readonly doctors: readonly SiteInfoPractitioner[];
 }
 
 /**
  * The /book page's week grid: previous/next navigation, a row per distinct slot time, a column per day, and the
  * booking panel (components/booking-form.tsx) that opens in a modal `<dialog>` when a free slot is clicked.
  */
-export function BookingWeek({ services }: BookingWeekProps): ReactElement {
+export function BookingWeek({ services, practitionerId, doctors }: BookingWeekProps): ReactElement {
   const [requestedWeek, setRequestedWeek] = useState<string | null>(null);
-  const [data, setData] = useState<SiteAvailability | null>(null);
+  const [loaded, setLoaded] = useState<LoadedWeek | null>(null);
+  const data = loaded?.availability ?? null;
   // Shown full-page in place of the grid, only while there's no data at all yet to fall back to.
   const [initialErrorMessage, setInitialErrorMessage] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -64,9 +78,11 @@ export function BookingWeek({ services }: BookingWeekProps): ReactElement {
   // has data to keep showing underneath it. Cleared whenever a new slot is selected.
   const [notice, setNotice] = useState<string | null>(null);
   const noticeRef = useRef<HTMLDivElement | null>(null);
-  // Tracks whether `data` was non-null as of the last commit, without being a fetch-effect dependency (adding
-  // `data` itself would refire the effect every time the effect sets it, looping the fetch forever).
-  const hasDataRef = useRef(false);
+  // The doctor the currently shown week was fetched for as of the last commit (undefined: nothing shown yet),
+  // without being a fetch-effect dependency (adding `loaded` itself would refire the effect every time the effect
+  // sets it, looping the fetch forever). A failed fetch keeps the shown week under a notice only when it belongs to
+  // the same doctor; another doctor's grid must never stay clickable under this doctor's name.
+  const loadedPractitionerRef = useRef<string | null | undefined>(undefined);
   // The slot button that opened the panel, so closing it returns focus there instead of dropping it.
   const openerRef = useRef<HTMLButtonElement | null>(null);
   // The (requestedWeek, refreshKey) pair of the most recently *completed* fetch — compared against the pair
@@ -76,18 +92,45 @@ export function BookingWeek({ services }: BookingWeekProps): ReactElement {
   // asynchronously, which is fine.
   const [lastCompletedFetchKey, setLastCompletedFetchKey] = useState("");
 
+  // The doctor this grid last rendered for. A different one (the visitor picked another card above the grid) is
+  // handled here, during render, rather than in an effect — React's documented way to reset state on a prop change
+  // without a wasted render of the stale state: back to the current week, with any open panel and notice closed.
+  // The previous doctor's grid stays visible (dimmed, and unclickable and unfocusable via .is-loading and inert)
+  // until the new one arrives, so the page doesn't jump.
+  const [shownPractitionerId, setShownPractitionerId] = useState(practitionerId);
+  if (practitionerId !== shownPractitionerId) {
+    setShownPractitionerId(practitionerId);
+    setRequestedWeek(null);
+    setSelection(null);
+    setNotice(null);
+  }
+
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
 
   useEffect(() => {
-    hasDataRef.current = data !== null;
-  }, [data]);
+    loadedPractitionerRef.current = loaded === null ? undefined : loaded.practitionerId;
+  }, [loaded]);
 
-  const fetchKey = `${requestedWeek ?? ""}:${refreshKey}`;
+  const fetchKey = `${practitionerId ?? ""}:${requestedWeek ?? ""}:${refreshKey}`;
   const isFetching = fetchKey !== lastCompletedFetchKey;
 
   useEffect(() => {
     let cancelled = false;
-    const query = requestedWeek === null ? "" : `?week=${encodeURIComponent(requestedWeek)}`;
+    const params = new URLSearchParams();
+    if (requestedWeek !== null) params.set("week", requestedWeek);
+    if (practitionerId !== null) params.set("practitioner", practitionerId);
+    const query = params.size === 0 ? "" : `?${params.toString()}`;
+
+    // A failure keeps the week already on screen (under a notice) only when it is this same doctor's; otherwise the
+    // grid is dropped for the full-page message.
+    function showFailure(message: string): void {
+      if (loadedPractitionerRef.current === practitionerId) {
+        setNotice(message);
+      } else {
+        setLoaded(null);
+        setInitialErrorMessage(message);
+      }
+    }
 
     fetch(`/api/availability${query}`, { cache: "no-store" })
       .then(async (response) => {
@@ -100,19 +143,16 @@ export function BookingWeek({ services }: BookingWeekProps): ReactElement {
         if (cancelled) return;
 
         if (response.ok && isSiteAvailability(body)) {
-          setData(body);
+          setLoaded({ availability: body, practitionerId });
           setInitialErrorMessage(null);
           return;
         }
 
-        const message = isSiteBookingError(body) ? body.message : LOAD_ERROR_MESSAGE;
-        if (hasDataRef.current) setNotice(message);
-        else setInitialErrorMessage(message);
+        showFailure(isSiteBookingError(body) ? body.message : LOAD_ERROR_MESSAGE);
       })
       .catch(() => {
         if (cancelled) return;
-        if (hasDataRef.current) setNotice(LOAD_ERROR_MESSAGE);
-        else setInitialErrorMessage(LOAD_ERROR_MESSAGE);
+        showFailure(LOAD_ERROR_MESSAGE);
       })
       .finally(() => {
         if (!cancelled) setLastCompletedFetchKey(fetchKey);
@@ -121,7 +161,7 @@ export function BookingWeek({ services }: BookingWeekProps): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [requestedWeek, refreshKey, fetchKey]);
+  }, [requestedWeek, refreshKey, practitionerId, fetchKey]);
 
   useEffect(() => {
     if (notice !== null) noticeRef.current?.focus();
@@ -153,6 +193,11 @@ export function BookingWeek({ services }: BookingWeekProps): ReactElement {
   }
 
   const rows = collectSlotRows(data.days);
+  // Only meaningful once there is a choice of doctor; see BookingPanelProps.doctor.
+  const doctor: DoctorChoice | null =
+    doctors.length === 0
+      ? null
+      : { practitioner: doctors.find((candidate) => candidate.id === practitionerId) ?? null };
 
   return (
     <div>
@@ -203,7 +248,9 @@ export function BookingWeek({ services }: BookingWeekProps): ReactElement {
         </span>
       </div>
 
-      <div className={isFetching ? "week-grid-wrap is-loading" : "week-grid-wrap"}>
+      {/* inert while fetching: .is-loading only blocks the pointer, and the previous doctor's slot buttons must not
+          be reachable by keyboard either. */}
+      <div className={isFetching ? "week-grid-wrap is-loading" : "week-grid-wrap"} inert={isFetching}>
         {rows.length === 0 ? (
           <>
             <p className="notice">No slots this week.</p>
@@ -271,6 +318,7 @@ export function BookingWeek({ services }: BookingWeekProps): ReactElement {
           start={selection.start}
           end={selection.end}
           services={services}
+          doctor={doctor}
           onClose={handleClosePanel}
           onBooked={handleBooked}
           onTaken={handleTaken}

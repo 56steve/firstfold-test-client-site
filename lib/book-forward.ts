@@ -48,12 +48,13 @@ export function whitelistFields(body: unknown): SiteBookingFields {
   const date = requiredString(record, "date");
   const start = requiredString(record, "start");
 
-  const email = optionalString(record, "email");
   const serviceId = optionalString(record, "serviceId");
-  const note = optionalString(record, "note");
   const website = optionalString(record, "website");
+  // Null (or absent) means "any doctor". Type-checked only, like serviceId: whether it names an active doctor is
+  // the platform's call, answered with its own field-specific error.
+  const practitionerId = optionalString(record, "practitionerId");
 
-  return { name, phone, email, serviceId, date, start, note, website };
+  return { name, phone, serviceId, date, start, website, practitionerId };
 }
 
 /** The exact request body to send to POST {PLATFORM}/api/site/bookings/otp. */

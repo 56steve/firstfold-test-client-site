@@ -77,11 +77,10 @@ h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
 .form { max-width: 480px; display: grid; gap: 18px; }
 .field { display: grid; gap: 6px; }
 .field label { font-weight: 600; font-size: 14px; }
-.field input, .field select, .field textarea {
+.field input, .field select {
   font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
 }
-.field textarea { resize: vertical; min-height: 90px; }
-.field input[aria-invalid="true"], .field select[aria-invalid="true"], .field textarea[aria-invalid="true"] { border-color: var(--accent); }
+.field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: var(--accent); }
 .field-error { margin: 0; color: var(--accent); font-size: 13px; }
 
 .form-status { max-width: 480px; }
@@ -98,6 +97,58 @@ h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
 }
 .form button:disabled { opacity: 0.6; cursor: not-allowed; }
 .form button.button-secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+
+/* Doctor picker (components/doctor-picker.tsx), beside or above the week grid when the clinic has two or more doctors. Each
+   card is a native radio's <label>; the radio itself is .sr-only, so the card draws the checked and focus states.
+   `min-width: 0` undoes a fieldset's UA default of min-content width, which would otherwise let a long row of cards
+   push the page itself wider than the viewport instead of scrolling inside .doctor-options. */
+.doctor-picker { border: 0; padding: 0; margin: 0 0 24px; min-width: 0; }
+.doctor-picker legend { font-weight: 600; font-size: 14px; padding: 0; margin-bottom: 8px; }
+.doctor-options { display: flex; flex-wrap: wrap; gap: 10px; padding: 3px; margin: -3px; }
+/* position: relative makes each card the containing block of its own .sr-only (absolutely positioned) radio, so a
+   radio in a card scrolled out of view inside .doctor-options can't stretch the page sideways. */
+.doctor-option {
+  position: relative; display: flex; align-items: center; gap: 12px; min-width: 200px; max-width: 280px; padding: 10px 16px 10px 10px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.doctor-option:hover { border-color: var(--ink-soft); }
+.doctor-option:has(:checked) { border-color: var(--accent); background: #fff; box-shadow: inset 0 0 0 1px var(--accent); }
+.doctor-option:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.doctor-avatar {
+  flex: none; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--line);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.doctor-avatar-initials { background: var(--paper); border: 1px solid var(--line); color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+.doctor-avatar-any { background: transparent; border: 1px dashed var(--ink-soft); }
+/* Name and specialty each stay on one line (ellipsis only as a last resort; the full specialty is in the title
+   attribute), so the text block is always one or two lines tall and its middle lines up with the photo's middle. */
+.doctor-text { display: grid; min-width: 0; line-height: 1.25; gap: 1px; }
+.doctor-name, .doctor-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doctor-name { font-weight: 600; font-size: 13.5px; }
+.doctor-title { color: var(--ink-soft); font-size: 12px; }
+
+/* On phones the cards stay on one line and scroll sideways inside their own row, never the page. */
+@media (max-width: 640px) {
+  .doctor-options { flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity; }
+  .doctor-option { flex: none; min-width: 180px; scroll-snap-align: start; }
+}
+/* Two or more doctors, wide screen: the picker becomes a vertical list in a side column and the week grid sits
+   beside it, starting at the top. 900px is where a 204px column plus the grid's own 640px minimum still fit in the
+   960px page without the grid having to scroll sideways. Below that the picker stays the row above the grid. */
+@media (min-width: 900px) {
+  .booking-layout { display: grid; grid-template-columns: 204px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .booking-layout .doctor-picker { margin: 0; position: sticky; top: 16px; }
+  .booking-layout .doctor-options { flex-direction: column; flex-wrap: nowrap; }
+  .booking-layout .doctor-option { min-width: 0; max-width: none; width: 100%; gap: 10px; padding: 8px 10px 8px 8px; }
+  .booking-layout-main .week-nav { margin-top: 0; }
+  /* The grid is narrower beside the column, so tighten the cells just enough for "14:00 – 14:30" to stay on one
+     line instead of wrapping each slot onto two. */
+  .booking-layout-main .week-grid th, .booking-layout-main .week-grid td { padding-left: 3px; padding-right: 3px; }
+  .booking-layout-main .slot-button { white-space: nowrap; padding-left: 2px; padding-right: 2px; }
+}
+
+.panel-doctor { margin: -4px 0 12px; color: var(--ink-soft); font-size: 14px; }
 
 /* Week grid (app/book/page.tsx via components/booking-week.tsx) */
 .week-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; margin: 8px 0 16px; }

@@ -112,6 +112,54 @@ describe("isSiteInfo", () => {
   it("rejects a booking with the wrong type for accepting", () => {
     expect(isSiteInfo({ ...VALID, booking: { ...VALID_BOOKING(), accepting: "yes" } })).toBe(false);
   });
+
+  it("accepts a booking without practitioners (a platform older than 2026-09-28)", () => {
+    expect(isSiteInfo({ ...VALID, booking: VALID_BOOKING() })).toBe(true);
+  });
+
+  it("accepts a booking with an empty or fully populated practitioners list", () => {
+    expect(isSiteInfo({ ...VALID, booking: { ...VALID_BOOKING(), practitioners: [] } })).toBe(true);
+    expect(
+      isSiteInfo({
+        ...VALID,
+        booking: {
+          ...VALID_BOOKING(),
+          practitioners: [PRACTITIONER(), { ...PRACTITIONER(), id: "doc-2", title: null, photoUrl: null }],
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it.each([null, "none", {}, 3])("rejects a booking whose practitioners is not an array: %s", (practitioners) => {
+    expect(isSiteInfo({ ...VALID, booking: { ...VALID_BOOKING(), practitioners } })).toBe(false);
+  });
+
+  it.each(["id", "name", "title", "photoUrl"])("rejects a practitioner missing %s", (field) => {
+    expect(isSiteInfo({ ...VALID, booking: { ...VALID_BOOKING(), practitioners: [without(PRACTITIONER(), field)] } })).toBe(
+      false,
+    );
+  });
+
+  it.each([
+    ["an empty id", { id: "" }],
+    ["a numeric id", { id: 7 }],
+    ["a blank name", { name: "  " }],
+    ["a numeric title", { title: 1 }],
+    ["a relative photoUrl", { photoUrl: "/photos/rahul.jpg" }],
+    ["a javascript: photoUrl", { photoUrl: "javascript:alert(1)" }],
+    ["a data: photoUrl", { photoUrl: "data:image/png;base64,AAAA" }],
+    ["a numeric photoUrl", { photoUrl: 5 }],
+  ])("rejects a practitioner with %s", (_label, override) => {
+    expect(
+      isSiteInfo({ ...VALID, booking: { ...VALID_BOOKING(), practitioners: [{ ...PRACTITIONER(), ...override }] } }),
+    ).toBe(false);
+  });
+
+  it("rejects the whole list when one practitioner among valid ones is malformed", () => {
+    expect(
+      isSiteInfo({ ...VALID, booking: { ...VALID_BOOKING(), practitioners: [PRACTITIONER(), "Dr Who"] } }),
+    ).toBe(false);
+  });
 });
 
 function HOURS_ROW(): Record<string, unknown> {
@@ -124,5 +172,14 @@ function VALID_BOOKING(): Record<string, unknown> {
     pausedMessage: null,
     services: [{ id: "svc-1", name: "Consultation" }],
     slotMinutes: 30,
+  };
+}
+
+function PRACTITIONER(): Record<string, unknown> {
+  return {
+    id: "5b0c3f9e-2c1a-4d7e-9f3a-1b2c3d4e5f60",
+    name: "Dr Rahul Menon",
+    title: "Sports physiotherapist",
+    photoUrl: "https://cdn.example.com/rahul.jpg",
   };
 }

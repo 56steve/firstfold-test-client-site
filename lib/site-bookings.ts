@@ -29,13 +29,18 @@ export interface SiteAvailability {
 export interface SiteBookingFields {
   readonly name: string;
   readonly phone: string;
+  /** @deprecated Ignored since 2026-09-28: the booking no longer asks for an email. Kept so older client sites
+   * that still send it keep type-checking against this contract. */
   readonly email?: string | null;
   readonly serviceId?: string | null;
   readonly date: string;  // YYYY-MM-DD
   readonly start: string; // HH:MM
+  /** @deprecated Ignored since 2026-09-28: the booking no longer asks for a note. Kept for the same reason. */
   readonly note?: string | null;
   /** Honeypot: left empty by people. */
   readonly website?: string | null;
+  /** Null or missing: any doctor. */
+  readonly practitionerId?: string | null;
 }
 export interface SiteOtpRequest {
   readonly fields: SiteBookingFields;
@@ -59,5 +64,13 @@ export type SiteOtpResponse =
   | { readonly status: "otp_sent"; readonly otpId: string; readonly expiresInSeconds: number; readonly phoneHint: string }
   | SiteBookingError;
 export type SiteConfirmResponse =
-  | { readonly status: "booked"; readonly date: string; readonly start: string; readonly end: string }
+  | {
+      readonly status: "booked";
+      readonly date: string;
+      readonly start: string;
+      readonly end: string;
+      /** The doctor the booking went to; null when their name could not be read back. Missing from platforms older
+       * than 2026-09-28. */
+      readonly practitionerName?: string | null;
+    }
   | SiteBookingError;

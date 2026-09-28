@@ -3,14 +3,16 @@
 import { useEffect, useId, useReducer, useRef, useState } from "react";
 import type { FormEvent, ReactElement } from "react";
 import { formatFullDayLabel, formatSlotRange } from "@/lib/booking-date-format";
+import { bookedMessage, doctorLine } from "@/lib/doctor-choice";
+import type { DoctorChoice } from "@/lib/doctor-choice";
 import { INITIAL_PANEL_STATE, panelReducer } from "@/lib/booking-panel-reducer";
 import type { KnownField } from "@/lib/booking-panel-reducer";
 import type { SiteInfoService } from "@/lib/site-info";
 
 /** Matches the platform's own limits, so a visitor hits the same ceiling here as a server-side 422 would enforce. */
-const MAX_LENGTHS: Record<KnownField, number> = { name: 80, phone: 30, email: 254, serviceId: 0, note: 300 };
+const MAX_LENGTHS: Record<KnownField, number> = { name: 80, phone: 30, serviceId: 0 };
 
-type FocusableField = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+type FocusableField = HTMLInputElement | HTMLSelectElement;
 
 export interface BookingPanelProps {
   /** YYYY-MM-DD, the day of the clicked slot. */
@@ -20,6 +22,9 @@ export interface BookingPanelProps {
   /** HH:MM (or "24:00"), the clicked slot's end. */
   readonly end: string;
   readonly services: readonly SiteInfoService[];
+  /** The doctor picked above the grid (its `practitioner` is null for "Any doctor"), or null when the clinic offers
+   * no choice — then the panel says nothing about doctors, exactly as before doctors existed. */
+  readonly doctor: DoctorChoice | null;
   readonly onClose: () => void;
   /** Called once the slot is booked, so the grid behind the panel can refetch and show it as taken. The panel
    * itself keeps showing its own confirmation until the visitor closes it. */
@@ -37,13 +42,20 @@ export interface BookingPanelProps {
  * the two fetches, and owns the DOM/focus concerns a reducer can't. See components/booking-week.tsx for the grid
  * that renders this.
  */
-export function BookingPanel({ date, start, end, services, onClose, onBooked, onTaken }: BookingPanelProps): ReactElement {
+export function BookingPanel({
+  date,
+  start,
+  end,
+  services,
+  doctor,
+  onClose,
+  onBooked,
+  onTaken,
+}: BookingPanelProps): ReactElement {
   const formId = useId();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [serviceId, setServiceId] = useState("");
-  const [note, setNote] = useState("");
   const [website, setWebsite] = useState(""); // honeypot: real visitors never fill this in
   const [state, dispatch] = useReducer(panelReducer, INITIAL_PANEL_STATE);
   const [now, setNow] = useState(() => Date.now());
@@ -61,6 +73,7 @@ export function BookingPanel({ date, start, end, services, onClose, onBooked, on
   const dayLabel = formatFullDayLabel(date);
   const slotRange = formatSlotRange(start, end);
   const headingId = `${formId}-heading`;
+  const doctorLineId = `${formId}-doctor`;
   const codeId = `${formId}-code`;
   const codeErrorId = `${formId}-code-error`;
 
@@ -161,12 +174,13 @@ export function BookingPanel({ date, start, end, services, onClose, onBooked, on
         body: JSON.stringify({
           name,
           phone,
-          email: email.trim() === "" ? null : email,
           serviceId: serviceId === "" ? null : serviceId,
           date,
           start,
-          note: note.trim() === "" ? null : note,
           website: website.trim() === "" ? null : website,
+          // Null is "any doctor" — also what a clinic with no choice to offer sends, which the platform treats the
+          // same as the field being absent.
+          practitionerId: doctor?.practitioner?.id ?? null,
         }),
       });
       try {
@@ -236,10 +250,16 @@ export function BookingPanel({ date, start, end, services, onClose, onBooked, on
   }
 
   // The confirmation names the slot the platform actually booked (state.booked), not just the one that was
-  // clicked — the two should always agree, but the server's own answer is the more trustworthy source.
+  // clicked — the two should always agree, but the server's own answer is the more trustworthy source. The same
+  // goes for the doctor, which for "Any doctor" is only known once the platform has picked one. It is left out
+  // when the clinic offers no choice of doctor, so a single-doctor clinic's confirmation reads as it always has.
   const statusMessage =
     state.step === "booked" && state.booked !== null
-      ? `You're booked: ${formatFullDayLabel(state.booked.date)}, ${formatSlotRange(state.booked.start, state.booked.end)}.`
+      ? bookedMessage(
+          formatFullDayLabel(state.booked.date),
+          formatSlotRange(state.booked.start, state.booked.end),
+          doctor === null ? null : state.booked.practitionerName,
+        )
       : (state.banner ?? (state.fieldError?.field === null ? state.fieldError.message : null) ?? "");
   const statusIsError = state.step !== "booked" && statusMessage !== "";
   const statusClassName = state.step === "booked" ? "form-status form-success" : statusIsError ? "form-status form-error" : "sr-only";
@@ -249,6 +269,7 @@ export function BookingPanel({ date, start, end, services, onClose, onBooked, on
       ref={dialogRef}
       className="panel"
       aria-labelledby={headingId}
+      aria-describedby={doctor === null ? undefined : doctorLineId}
       aria-modal="true"
     >
       <div className="panel-head">
@@ -265,6 +286,8 @@ export function BookingPanel({ date, start, end, services, onClose, onBooked, on
           ×
         </button>
       </div>
+
+      {doctor === null ? null : <p className="panel-doctor" id={doctorLineId}>{doctorLine(doctor.practitioner)}</p>}
 
       <div ref={statusRef} role="status" aria-live="polite" tabIndex={-1} className={statusClassName}>
         {statusMessage}
@@ -378,28 +401,6 @@ export function BookingPanel({ date, start, end, services, onClose, onBooked, on
             )}
           </div>
 
-          <div className="field">
-            <label htmlFor={`${formId}-email`}>Email (optional)</label>
-            <input
-              id={`${formId}-email`}
-              ref={(el) => {
-                fieldRefs.current.email = el;
-              }}
-              name="email"
-              type="email"
-              autoComplete="email"
-              maxLength={MAX_LENGTHS.email}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              {...fieldAttributes("email")}
-            />
-            {state.fieldError?.field !== "email" ? null : (
-              <p className="field-error" id={fieldErrorId("email")}>
-                {state.fieldError.message}
-              </p>
-            )}
-          </div>
-
           {services.length === 0 ? null : (
             <div className="field">
               <label htmlFor={`${formId}-service`}>Service</label>
@@ -427,27 +428,6 @@ export function BookingPanel({ date, start, end, services, onClose, onBooked, on
               )}
             </div>
           )}
-
-          <div className="field">
-            <label htmlFor={`${formId}-note`}>Note (optional)</label>
-            <textarea
-              id={`${formId}-note`}
-              ref={(el) => {
-                fieldRefs.current.note = el;
-              }}
-              name="note"
-              placeholder="Please don't include medical details"
-              maxLength={MAX_LENGTHS.note}
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              {...fieldAttributes("note")}
-            />
-            {state.fieldError?.field !== "note" ? null : (
-              <p className="field-error" id={fieldErrorId("note")}>
-                {state.fieldError.message}
-              </p>
-            )}
-          </div>
 
           {/* Honeypot: hidden from sighted users (CSS) and from assistive tech (aria-hidden), out of the tab
               order, and not autofilled. A person never fills this in; a bot that fills every field does. */}

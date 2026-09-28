@@ -20,12 +20,21 @@ export interface SiteInfoService {
   readonly id: string;
   readonly name: string;
 }
+export interface SiteInfoPractitioner {
+  readonly id: string;
+  readonly name: string;
+  readonly title: string | null;
+  /** Absolute URL of a square photo, or null to show initials. */
+  readonly photoUrl: string | null;
+}
 export interface SiteInfoBooking {
   readonly accepting: boolean;
   readonly pausedMessage: string | null;
   readonly services: readonly SiteInfoService[];
   /** Length of every slot in minutes. */
   readonly slotMinutes: number;
+  /** Active doctors in the clinic's order. Missing from platforms older than 2026-09-28. */
+  readonly practitioners?: readonly SiteInfoPractitioner[];
 }
 export interface SiteInfo {
   readonly business: string;

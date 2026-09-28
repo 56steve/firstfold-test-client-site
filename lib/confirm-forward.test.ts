@@ -72,6 +72,30 @@ describe("interpretUpstreamResponse", () => {
     expect(interpretUpstreamResponse(200, body)).toEqual({ status: 200, body });
   });
 
+  it("keeps the practitionerName the platform booked with", () => {
+    const body = { status: "booked", date: "2026-10-13", start: "14:00", end: "14:30", practitionerName: "Dr Rahul Menon" };
+    expect(interpretUpstreamResponse(200, body)).toEqual({ status: 200, body });
+  });
+
+  it("keeps a null practitionerName (the doctor's name could not be read back)", () => {
+    const body = { status: "booked", date: "2026-10-13", start: "14:00", end: "14:30", practitionerName: null };
+    expect(interpretUpstreamResponse(200, body)).toEqual({ status: 200, body });
+  });
+
+  it("adds no practitionerName key when an older platform sent none", () => {
+    const result = interpretUpstreamResponse(200, { status: "booked", date: "2026-09-28", start: "09:00", end: "09:30" });
+    expect(result.status).toBe(200);
+    expect("practitionerName" in result.body).toBe(false);
+  });
+
+  it.each([42, true, { name: "Dr Rahul Menon" }])(
+    "maps a booked body with a wrongly typed practitionerName %s to a generic 502",
+    (practitionerName) => {
+      const body = { status: "booked", date: "2026-10-13", start: "14:00", end: "14:30", practitionerName };
+      expect(interpretUpstreamResponse(200, body)).toEqual({ status: 502, body: GENERIC_FAILURE_RESPONSE });
+    },
+  );
+
   it.each([400, 403, 409, 410, 422, 429])("relays a well-formed error body for status %d", (status) => {
     const body = { status: "error", code: "wrong_code", message: "Nope", field: null };
     expect(interpretUpstreamResponse(status, body)).toEqual({ status, body });

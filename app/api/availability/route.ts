@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { apiOrigin } from "@/lib/api-origin";
-import { buildUpstreamPath, GENERIC_FAILURE_RESPONSE, interpretUpstreamResponse, isValidWeekParam } from "@/lib/availability-forward";
+import {
+  buildUpstreamPath,
+  GENERIC_FAILURE_RESPONSE,
+  interpretUpstreamResponse,
+  isValidWeekParam,
+  practitionerParam,
+} from "@/lib/availability-forward";
 import { INVALID_BODY_RESPONSE, UPSTREAM_TIMEOUT_MS } from "@/lib/request-guard";
 
 /**
@@ -20,6 +26,8 @@ export async function GET(request: Request): Promise<Response> {
   if (week !== null && !isValidWeekParam(week)) {
     return NextResponse.json(INVALID_BODY_RESPONSE, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
+  // A non-uuid practitioner is dropped (any doctor), not rejected — see practitionerParam.
+  const practitioner = practitionerParam(searchParams.get("practitioner"));
 
   const token = process.env.FIRSTFOLD_SITE_TOKEN?.trim();
   if (token === undefined || token === "") {
@@ -30,7 +38,7 @@ export async function GET(request: Request): Promise<Response> {
   let upstreamStatus: number;
   let upstreamBody: unknown;
   try {
-    const upstreamResponse = await fetch(`${apiOrigin()}${buildUpstreamPath(week)}`, {
+    const upstreamResponse = await fetch(`${apiOrigin()}${buildUpstreamPath(week, practitioner)}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),

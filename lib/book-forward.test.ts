@@ -11,12 +11,11 @@ import { without } from "./__tests__/support";
 const VALID_BODY = {
   name: "Asha Rao",
   phone: "+91 90000 00000",
-  email: "asha@example.com",
   serviceId: "svc-1",
   date: "2026-10-01",
   start: "09:00",
-  note: "First visit",
   website: "",
+  practitionerId: "5b0c3f9e-2c1a-4d7e-9f3a-1b2c3d4e5f60",
 };
 
 describe("whitelistFields", () => {
@@ -24,33 +23,42 @@ describe("whitelistFields", () => {
     expect(whitelistFields(VALID_BODY)).toEqual({
       name: "Asha Rao",
       phone: "+91 90000 00000",
-      email: "asha@example.com",
       serviceId: "svc-1",
       date: "2026-10-01",
       start: "09:00",
-      note: "First visit",
       website: "",
+      practitionerId: "5b0c3f9e-2c1a-4d7e-9f3a-1b2c3d4e5f60",
     });
+  });
+
+  it("never forwards an email or a note, which the booking no longer asks for", () => {
+    const result = whitelistFields({ ...VALID_BODY, email: "asha@example.com", note: "First visit" });
+    expect(result).not.toHaveProperty("email");
+    expect(result).not.toHaveProperty("note");
   });
 
   it("drops keys that are not part of the known shape", () => {
     const withExtra = { ...VALID_BODY, admin: true, token: "steal-me" };
     const result = whitelistFields(withExtra);
     expect(Object.keys(result).sort()).toEqual(
-      ["date", "email", "name", "note", "phone", "serviceId", "start", "website"].sort(),
+      ["date", "name", "phone", "practitionerId", "serviceId", "start", "website"].sort(),
     );
   });
 
   it("defaults absent optional fields to null", () => {
-    const required = ["email", "serviceId", "note", "website"].reduce(
+    const required = ["serviceId", "website", "practitionerId"].reduce(
       (body, key) => without(body, key),
       VALID_BODY as Record<string, unknown>,
     );
-    expect(whitelistFields(required)).toMatchObject({ email: null, serviceId: null, note: null, website: null });
+    expect(whitelistFields(required)).toMatchObject({ serviceId: null, website: null, practitionerId: null });
   });
 
   it("keeps an explicit null for an optional field", () => {
-    expect(whitelistFields({ ...VALID_BODY, email: null })).toMatchObject({ email: null });
+    expect(whitelistFields({ ...VALID_BODY, serviceId: null })).toMatchObject({ serviceId: null });
+  });
+
+  it("keeps an explicit null practitionerId, which means any doctor", () => {
+    expect(whitelistFields({ ...VALID_BODY, practitionerId: null })).toMatchObject({ practitionerId: null });
   });
 
   it.each(["name", "phone", "date", "start"])("rejects a missing required field %s", (field) => {
@@ -75,7 +83,7 @@ describe("whitelistFields", () => {
     expect(() => whitelistFields([VALID_BODY])).toThrow(InvalidBookingBodyError);
   });
 
-  it.each(["email", "serviceId", "note", "website"])("rejects a wrongly typed optional field %s", (field) => {
+  it.each(["serviceId", "website", "practitionerId"])("rejects a wrongly typed optional field %s", (field) => {
     expect(() => whitelistFields({ ...VALID_BODY, [field]: 42 })).toThrow(InvalidBookingBodyError);
   });
 

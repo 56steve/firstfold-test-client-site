@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactElement } from "react";
-import { BookingWeek } from "@/components/booking-week";
+import { BookingScheduler } from "@/components/booking-scheduler";
 import { getSiteInfo } from "@/lib/firstfold-info";
 
 export const metadata: Metadata = { title: "Book an appointment" };
@@ -28,7 +28,7 @@ export default async function BookPage(): Promise<ReactElement> {
     <>
       <h1>Book an appointment</h1>
       {booking.accepting ? (
-        <BookingWeek services={booking.services} />
+        <BookingScheduler services={booking.services} practitioners={booking.practitioners} />
       ) : (
         <p className="notice">{booking.pausedMessage ?? "Online booking is paused. Please call us."}</p>
       )}

@@ -90,8 +90,8 @@ describe("POST /api/book/otp", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const oversizedNote = "x".repeat(MAX_BODY_BYTES + 1);
-    const response = await POST(otpRequest({ body: JSON.stringify({ ...VALID_FIELDS, note: oversizedNote }) }));
+    const oversizedName = "x".repeat(MAX_BODY_BYTES + 1);
+    const response = await POST(otpRequest({ body: JSON.stringify({ ...VALID_FIELDS, name: oversizedName }) }));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ status: "error", code: "invalid" });

@@ -4,7 +4,10 @@ import {
   GENERIC_FAILURE_RESPONSE,
   interpretUpstreamResponse,
   isValidWeekParam,
+  practitionerParam,
 } from "./availability-forward";
+
+const DOCTOR_ID = "5b0c3f9e-2c1a-4d7e-9f3a-1b2c3d4e5f60";
 
 describe("isValidWeekParam", () => {
   it("accepts a real calendar date", () => {
@@ -27,6 +30,34 @@ describe("buildUpstreamPath", () => {
   it("includes an encoded week when given", () => {
     expect(buildUpstreamPath("2026-09-28")).toBe("/api/site/availability?week=2026-09-28");
   });
+
+  it("adds the practitioner when given, with or without a week", () => {
+    expect(buildUpstreamPath("2026-09-28", DOCTOR_ID)).toBe(
+      `/api/site/availability?week=2026-09-28&practitioner=${DOCTOR_ID}`,
+    );
+    expect(buildUpstreamPath(null, DOCTOR_ID)).toBe(`/api/site/availability?practitioner=${DOCTOR_ID}`);
+  });
+
+  it("omits the practitioner when it is null", () => {
+    expect(buildUpstreamPath("2026-09-28", null)).toBe("/api/site/availability?week=2026-09-28");
+  });
+});
+
+describe("practitionerParam", () => {
+  it("keeps a uuid", () => {
+    expect(practitionerParam(DOCTOR_ID)).toBe(DOCTOR_ID);
+  });
+
+  it("keeps an uppercase uuid", () => {
+    expect(practitionerParam(DOCTOR_ID.toUpperCase())).toBe(DOCTOR_ID.toUpperCase());
+  });
+
+  it.each([null, "", "any", "123", `${DOCTOR_ID}x`, `${DOCTOR_ID}&week=2026-01-05`, " " + DOCTOR_ID])(
+    "drops anything that isn't a uuid: %s",
+    (value) => {
+      expect(practitionerParam(value)).toBeNull();
+    },
+  );
 });
 
 const VALID_AVAILABILITY = {

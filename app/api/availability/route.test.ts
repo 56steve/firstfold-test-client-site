@@ -65,6 +65,39 @@ describe("GET /api/availability", () => {
     expect(call[0]).toBe("https://platform.example/api/site/availability");
   });
 
+  it("forwards a uuid practitioner to the platform", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init: RequestInit) => {
+      void _url;
+      void _init;
+      return new Response(JSON.stringify(VALID_AVAILABILITY), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const doctorId = "5b0c3f9e-2c1a-4d7e-9f3a-1b2c3d4e5f60";
+    const response = await GET(availabilityRequest(`?week=2026-09-28&practitioner=${doctorId}`));
+
+    expect(response.status).toBe(200);
+    const call = fetchMock.mock.calls[0];
+    if (call === undefined) throw new Error("fetch was not called");
+    expect(call[0]).toBe(`https://platform.example/api/site/availability?week=2026-09-28&practitioner=${doctorId}`);
+  });
+
+  it("omits a practitioner that isn't a uuid instead of forwarding it", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init: RequestInit) => {
+      void _url;
+      void _init;
+      return new Response(JSON.stringify(VALID_AVAILABILITY), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(availabilityRequest("?week=2026-09-28&practitioner=../../admin"));
+
+    expect(response.status).toBe(200);
+    const call = fetchMock.mock.calls[0];
+    if (call === undefined) throw new Error("fetch was not called");
+    expect(call[0]).toBe("https://platform.example/api/site/availability?week=2026-09-28");
+  });
+
   it("rejects a malformed week without calling the platform", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

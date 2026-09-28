@@ -7,6 +7,7 @@
 import { GENERIC_FAILURE_RESPONSE } from "./request-guard";
 import { isSiteAvailability, isSiteBookingError } from "./site-bookings-guard";
 import type { SiteAvailability, SiteBookingError } from "./site-bookings";
+import { isUuid } from "./uuid";
 
 export { GENERIC_FAILURE_RESPONSE, INVALID_BODY_RESPONSE } from "./request-guard";
 
@@ -23,9 +24,23 @@ export function isValidWeekParam(value: string): boolean {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
-/** The upstream path to call: `week` omitted lets the platform default to the current week. */
-export function buildUpstreamPath(week: string | null): string {
-  return week === null ? "/api/site/availability" : `/api/site/availability?week=${encodeURIComponent(week)}`;
+/**
+ * The `practitioner` query parameter to forward, or null to leave it off. Only a uuid is forwarded; anything else
+ * (blank, "any", a probing string) is dropped rather than rejected, so the grid falls back to "any doctor" instead
+ * of erroring — a wrong id that *is* a uuid still reaches the platform, which answers its own 400 for it.
+ */
+export function practitionerParam(value: string | null): string | null {
+  return value !== null && isUuid(value) ? value : null;
+}
+
+/** The upstream path to call: `week` omitted lets the platform default to the current week, and `practitioner`
+ * omitted means any doctor. */
+export function buildUpstreamPath(week: string | null, practitioner: string | null = null): string {
+  const params = new URLSearchParams();
+  if (week !== null) params.set("week", week);
+  if (practitioner !== null) params.set("practitioner", practitioner);
+  const query = params.toString();
+  return query === "" ? "/api/site/availability" : `/api/site/availability?${query}`;
 }
 
 /** Status codes the platform answers a SiteBookingError body for; 200 is handled separately since it answers a

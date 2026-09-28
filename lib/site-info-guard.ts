@@ -3,7 +3,14 @@
  * than trusting a cast. Pure (no fetching, no `server-only`), so it is unit-tested directly; lib/firstfold-info.ts
  * does the fetching.
  */
-import type { SiteInfo, SiteInfoBooking, SiteInfoClosure, SiteInfoHours, SiteInfoService } from "./site-info";
+import type {
+  SiteInfo,
+  SiteInfoBooking,
+  SiteInfoClosure,
+  SiteInfoHours,
+  SiteInfoPractitioner,
+  SiteInfoService,
+} from "./site-info";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -60,6 +67,36 @@ function isService(value: unknown): value is SiteInfoService {
   return isRecord(value) && typeof value.id === "string" && typeof value.name === "string";
 }
 
+/**
+ * An absolute http(s) URL, or null. The photo ends up in an <img src> on the /book page, so anything else — a
+ * relative path (which would resolve against this site, not the platform), a `data:` or `javascript:` URL — is a
+ * malformed contract rather than something to render.
+ */
+function isNullablePhotoUrl(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+/** A non-empty id (it becomes the `practitioner` query parameter and the booking's practitionerId) and a non-blank
+ * name (it is the only visible label of the doctor's radio card). */
+function isPractitioner(value: unknown): value is SiteInfoPractitioner {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    value.id !== "" &&
+    typeof value.name === "string" &&
+    value.name.trim() !== "" &&
+    isNullableString(value.title) &&
+    isNullablePhotoUrl(value.photoUrl)
+  );
+}
+
 function isBooking(value: unknown): value is SiteInfoBooking {
   return (
     isRecord(value) &&
@@ -69,7 +106,10 @@ function isBooking(value: unknown): value is SiteInfoBooking {
     value.services.every(isService) &&
     typeof value.slotMinutes === "number" &&
     Number.isInteger(value.slotMinutes) &&
-    value.slotMinutes > 0
+    value.slotMinutes > 0 &&
+    // Missing on platforms older than 2026-09-28 (the site then behaves as a single-doctor clinic); when present it
+    // must be a list of well-formed doctors — one bad entry rejects the whole body, the same as every other list.
+    (value.practitioners === undefined || (Array.isArray(value.practitioners) && value.practitioners.every(isPractitioner)))
   );
 }
 

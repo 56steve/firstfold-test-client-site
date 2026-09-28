@@ -216,6 +216,18 @@ describe("isSiteConfirmResponse", () => {
     expect(isSiteConfirmResponse({ status: "booked", date: "2026-09-28", start: "9:00", end: "09:30" })).toBe(false);
   });
 
+  it.each(["Dr Rahul Menon", null])("accepts a booked response with practitionerName %s", (practitionerName) => {
+    expect(
+      isSiteConfirmResponse({ status: "booked", date: "2026-09-28", start: "09:00", end: "09:30", practitionerName }),
+    ).toBe(true);
+  });
+
+  it.each([7, false, ["Dr Rahul Menon"]])("rejects a booked response with a wrongly typed practitionerName %s", (practitionerName) => {
+    expect(
+      isSiteConfirmResponse({ status: "booked", date: "2026-09-28", start: "09:00", end: "09:30", practitionerName }),
+    ).toBe(false);
+  });
+
   it("accepts a booked response ending at 24:00 (a booking running to midnight)", () => {
     expect(isSiteConfirmResponse({ status: "booked", date: "2026-09-28", start: "23:30", end: "24:00" })).toBe(true);
   });

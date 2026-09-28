@@ -138,7 +138,13 @@ export function isSiteOtpResponse(value: unknown): value is SiteOtpResponse {
 export function isSiteConfirmResponse(value: unknown): value is SiteConfirmResponse {
   if (!isRecord(value)) return false;
   if (value.status === "booked") {
-    return isDateString(value.date) && isTimeString(value.start) && isEndTimeString(value.end);
+    return (
+      isDateString(value.date) &&
+      isTimeString(value.start) &&
+      isEndTimeString(value.end) &&
+      // Missing from platforms older than 2026-09-28; when present, the doctor's name or null.
+      (value.practitionerName === undefined || isNullableString(value.practitionerName))
+    );
   }
   return isSiteBookingError(value);
 }
