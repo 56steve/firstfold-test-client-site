@@ -13,7 +13,18 @@ point for the blog part of real client sites.
 - The token is read on the server only (`server-only`); it is never sent to the browser.
 - Pages use `revalidate = 60`: a published, edited, unpublished or deleted post shows on the site within about a
   minute.
-- `/` shows the latest three posts, `/blog` all of them, `/blog/[slug]` one post.
+- `/` shows the latest three posts, `/blog` all of them with category filters, `/blog/category/[category]` one
+  category's posts, `/blog/[slug]` one post (with its category, author and related posts).
+- The blog page is always `/blog` and categories `/blog/category/<name>`. Each article lives at `/blog/<article>`
+  unless the Firstfold post editor's **Web address** gives it another, e.g. `/tips/desk-stretches`, or just
+  `/desk-stretches` at the root of the site. The platform sends both with each post, along with the article's earlier addresses, so the
+  site follows within a minute with no redeploy, and every other address of the article (its old `/blog/<article>`,
+  or an address it had before) redirects to it permanently (lib/blog-path.ts,
+  components/post-page.tsx). An article's address never includes its category, so moving it between categories
+  never breaks a link.
+- SEO is automatic: each post page gets its search title and description (the customer's, or the platform's
+  defaults), a canonical link, Open Graph tags, and `BlogPosting` + `BreadcrumbList` JSON-LD. `/sitemap.xml` lists
+  every post and category, leaving out posts the customer hid from search engines; `/robots.txt` points to it.
 
 ## Deploying on Vercel
 
@@ -22,6 +33,8 @@ point for the blog part of real client sites.
 3. In the Vercel project, **Settings → Environment Variables**, add for Production and Preview:
    - `FIRSTFOLD_SITE_TOKEN` = the token
    - `FIRSTFOLD_API_ORIGIN` = `https://app.firstfold.io` (optional; this is the default)
+   - `SITE_URL` = the site's own address, e.g. `https://www.example.com`, once a real domain is connected (canonical
+     links, sitemap and schema.org data use it; until then the production `*.vercel.app` address is used)
 4. Redeploy so the variables take effect.
 
 If the token is replaced in the admin later, the blog shows a "refused this site's blog token" notice until the new
@@ -30,7 +43,7 @@ token is pasted into Vercel and the project is redeployed.
 ## Known limits of the platform (not this site)
 
 - **Cover images need a login on the platform**, so they do not load for the public yet.
-- **Post addresses are not unique**: two posts with the same title share one address; the newest is shown.
+- **Post addresses are unique per business since 2026-09-23**; a clash from before then shows the newest post.
 
 ## Local development
 
@@ -40,4 +53,4 @@ pnpm install
 pnpm dev
 ```
 
-Checks: `pnpm lint`, `pnpm typecheck`, `pnpm build`.
+Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.

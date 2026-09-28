@@ -1,4 +1,7 @@
 import "server-only";
+import { BlogResponseShapeError, isRecord, parsePost, requireString, type BlogPost } from "./blog-model";
+
+export type { BlogPost } from "./blog-model";
 
 /**
  * Reads this client's published blog posts from the Firstfold platform (`GET /api/site/posts`).
@@ -15,20 +18,12 @@ export const BLOG_REVALIDATE_SECONDS = 60;
 
 const DEFAULT_API_ORIGIN = "https://app.firstfold.io";
 
-export interface BlogPost {
-  readonly slug: string;
-  readonly title: string;
-  readonly excerpt: string | null;
-  readonly publishedAt: string | null;
-  /** Already escaped by the platform, with unsafe link schemes removed, so it is rendered as-is. */
-  readonly html: string;
-  /** Absolute URL of the cover image, or null when the post has none. */
-  readonly coverImageUrl: string | null;
-  readonly categories: readonly string[];
-}
-
 export type BlogResult =
-  | { readonly kind: "ok"; readonly business: string; readonly posts: readonly BlogPost[] }
+  | {
+      readonly kind: "ok";
+      readonly business: string;
+      readonly posts: readonly BlogPost[];
+    }
   /** FIRSTFOLD_SITE_TOKEN is not set in this deployment. */
   | { readonly kind: "not-configured" }
   /** The platform refused the token: wrong, or replaced in the admin since this site was deployed. */
@@ -36,59 +31,19 @@ export type BlogResult =
   /** The platform could not be reached or answered with something unexpected. */
   | { readonly kind: "unavailable"; readonly detail: string };
 
-class BlogResponseShapeError extends Error {
-  constructor(detail: string) {
-    super(`The Firstfold blog API returned an unexpected shape: ${detail}`);
-    this.name = "BlogResponseShapeError";
-  }
-}
-
 function apiOrigin(): string {
   const configured = process.env.FIRSTFOLD_API_ORIGIN?.trim();
   return configured === undefined || configured === "" ? DEFAULT_API_ORIGIN : configured.replace(/\/+$/, "");
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function requireString(record: Record<string, unknown>, key: string): string {
-  const value = record[key];
-  if (typeof value !== "string") throw new BlogResponseShapeError(`"${key}" is not a string`);
-  return value;
-}
-
-function optionalString(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key];
-  if (value === null || value === undefined) return null;
-  if (typeof value !== "string") throw new BlogResponseShapeError(`"${key}" is neither a string nor null`);
-  return value;
-}
-
-/** Validates one post from the API at the boundary, rather than trusting a cast. */
-function parsePost(raw: unknown, origin: string): BlogPost {
-  if (!isRecord(raw)) throw new BlogResponseShapeError("a post is not an object");
-  const categories = raw.categories;
-  if (!Array.isArray(categories) || !categories.every((c): c is string => typeof c === "string")) {
-    throw new BlogResponseShapeError('"categories" is not a list of strings');
-  }
-  const coverImagePath = optionalString(raw, "coverImagePath");
-  return {
-    slug: requireString(raw, "slug"),
-    title: requireString(raw, "title"),
-    excerpt: optionalString(raw, "excerpt"),
-    publishedAt: optionalString(raw, "publishedAt"),
-    html: requireString(raw, "html"),
-    coverImageUrl: coverImagePath === null ? null : new URL(coverImagePath, origin).toString(),
-    categories,
-  };
 }
 
 function parseResponse(body: unknown, origin: string): { business: string; posts: BlogPost[] } {
   if (!isRecord(body)) throw new BlogResponseShapeError("the body is not an object");
   const posts = body.posts;
   if (!Array.isArray(posts)) throw new BlogResponseShapeError('"posts" is not a list');
-  return { business: requireString(body, "business"), posts: posts.map((post) => parsePost(post, origin)) };
+  return {
+    business: requireString(body, "business"),
+    posts: posts.map((post) => parsePost(post, origin)),
+  };
 }
 
 export async function getBlog(): Promise<BlogResult> {
@@ -160,14 +115,6 @@ export async function getPreviewPost(previewToken: string): Promise<PreviewResul
     }
     throw error;
   }
-}
-
-/**
- * The post with this address. Addresses are not guaranteed unique on the platform yet (two posts with the same title
- * share one), so the newest wins: the API returns posts newest first.
- */
-export function findPost(posts: readonly BlogPost[], slug: string): BlogPost | null {
-  return posts.find((post) => post.slug === slug) ?? null;
 }
 
 const DATE_FORMAT = new Intl.DateTimeFormat("en-IN", {

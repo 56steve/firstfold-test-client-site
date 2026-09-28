@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BLOG_HREF } from "@/lib/blog-path";
 import type { ReactElement } from "react";
 import { BlogNotice } from "@/components/blog-notice";
 import { PostCard } from "@/components/post-card";
@@ -21,7 +22,7 @@ export default async function HomePage(): Promise<ReactElement> {
       <section aria-labelledby="latest">
         <div className="section-head">
           <h2 id="latest">Latest from the blog</h2>
-          <Link href="/blog">All posts</Link>
+          <Link href={BLOG_HREF}>All posts</Link>
         </div>
         {blog.kind !== "ok" ? (
           <BlogNotice result={blog} />

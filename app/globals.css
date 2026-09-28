@@ -60,3 +60,21 @@ h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
 .post-body img { max-width: 100%; height: auto; }
 
 .preview-banner { margin: 0 0 24px; padding: 12px 16px; border-radius: 12px; background: #fff4d6; border: 1px solid #ecd9a0; color: var(--ink); font-size: 14px; }
+
+.category-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
+.category-nav a {
+  padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--card); color: var(--ink); font-size: 14px; text-decoration: none;
+}
+.category-nav a:hover { border-color: var(--accent); }
+.category-nav a[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+
+.card-category { display: block; margin-bottom: 6px; color: var(--accent); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.post-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; color: var(--ink-soft); font-size: 15px; }
+.post-meta a { text-decoration: none; }
+.post-author-bio { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-soft); }
+.post-author-bio strong { color: var(--ink); font-weight: 600; }
+
+.related { max-width: 960px; margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--line); }
+.related h2 { margin: 0 0 20px; }
